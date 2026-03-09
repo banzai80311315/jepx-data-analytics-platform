@@ -1,10 +1,10 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-PATH = "../data/raw/spot_summary2023.csv"
+PATH = "data/raw/spot_summary_2023.csv"
 
 # CSV読み込み
-df = pd.read_csv(PATH)
+df = pd.read_csv(PATH,encoding="cp932")
 
 print("rows:", len(df))
 print("columns:", df.columns.tolist())
