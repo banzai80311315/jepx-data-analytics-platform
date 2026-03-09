@@ -129,6 +129,7 @@ flowchart TD
     A --> D[logs/]
     A --> E[requirements.txt]
     A --> F[README.md]
+    A --> G[project/]
 
     B --> B1[main.py]
     B --> B2[config.py]
