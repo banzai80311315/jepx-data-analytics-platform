@@ -1,4 +1,16 @@
-data/raw/*
+# Python
+__pycache__/
+*.pyc
 
-
+# Jupyter
 .ipynb_checkpoints/
+
+# virtual environment
+venv/
+
+# logs
+logs/
+
+# data
+data/raw/*
+data/processed/*
