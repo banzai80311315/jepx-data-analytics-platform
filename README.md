@@ -1,9 +1,50 @@
 # jepx-data-analytics-platform
-## 1. 全体アーキテクチャ
+
+JEPX（日本卸電力取引所）の電力価格データを収集・蓄積・分析し、  
+電力価格スパイクの統計的性質を研究するためのデータ分析基盤。
+
+最終的な研究テーマ：
+
+```
+JEPX価格
+↓
+スパイク検出
+↓
+極値分布
+↓
+臨界現象
+↓
+電力需給モデル
+```
+
+---
+
+# 1. 開発環境アーキテクチャ
+
+本プロジェクトは **Windowsホスト + Ubuntu VM** 上で開発する。
 
 ```mermaid
 flowchart TD
-    A[Windows Task Scheduler / cron] --> B[main.py]
+    A[Windows Host]
+    A --> B[VirtualBox]
+    B --> C[Ubuntu VM]
+    C --> D[Python Environment]
+    D --> E[JEPX Data Analytics Platform]
+```
+
+この構成により以下を実現する。
+
+- Linuxサーバー環境での開発
+- cronベースのバッチ処理
+- 将来のLinuxサーバー・クラウド移行
+
+---
+
+# 2. 全体アーキテクチャ
+
+```mermaid
+flowchart TD
+    A[cron Scheduler] --> B[main.py]
     B --> C[downloader.py]
     C --> D[JEPX公開データ取得]
     C --> E[data/raw/ に生データ保存]
@@ -28,7 +69,7 @@ flowchart TD
 
 ---
 
-## 2. ETLの流れ
+# 3. ETLの流れ
 
 ```mermaid
 flowchart LR
@@ -43,7 +84,7 @@ flowchart LR
 
 ---
 
-## 3. ディレクトリ構成と責務
+# 4. ディレクトリ構成と責務
 
 ```mermaid
 flowchart TD
@@ -65,53 +106,38 @@ flowchart TD
     C --> C3[jepx.sqlite3]
 ```
 
-### 各ファイルの責務
+---
 
-- `main.py`  
-  全体の実行制御を担当するエントリポイント
+## 各ファイルの責務
 
-- `config.py`  
-  URL、保存先、DB名など設定値を管理する
+### main.py
+全体の実行制御を担当するエントリポイント
 
-- `downloader.py`  
-  JEPXデータの取得と raw 保存を担当する
+### config.py
+URL、保存先、DB名など設定値を管理
 
-- `processor.py`  
-  生データの整形、列整理、型変換、必要列抽出を担当する
+### downloader.py
+JEPXデータの取得と raw 保存
 
-- `database.py`  
-  SQLiteへの保存、テーブル作成、重複制御を担当する
+### processor.py
+生データ整形
 
-- `logger.py`  
-  ログ出力設定を担当する
+- 列整理
+- 型変換
+- 必要列抽出
+
+### database.py
+SQLite保存処理
+
+- テーブル作成
+- 重複制御
+
+### logger.py
+ログ設定
 
 ---
 
-## 4. Phase A の実行フロー（Windowsローカル）
-
-```mermaid
-sequenceDiagram
-    participant S as Task Scheduler
-    participant M as main.py
-    participant D as downloader.py
-    participant P as processor.py
-    participant DB as SQLite
-
-    S->>M: 定期実行
-    M->>D: JEPXデータ取得開始
-    D->>D: 公開データダウンロード
-    D->>M: raw保存完了
-    M->>P: データ整形依頼
-    P->>P: 列整理・型変換・必要列抽出
-    P->>M: processed保存完了
-    M->>DB: SQLiteへ保存
-    DB->>M: 保存完了
-    M->>M: ログ出力
-```
-
----
-
-## 5. Phase C の実行フロー（ミニPC + Linux）
+# 5. Phase A 実行フロー（Ubuntu VM）
 
 ```mermaid
 sequenceDiagram
@@ -119,21 +145,39 @@ sequenceDiagram
     participant M as main.py
     participant D as downloader.py
     participant P as processor.py
-    participant DB as SQLite/PostgreSQL
+    participant DB as SQLite
     participant LOG as logs/
 
-    C->>M: 毎日定時実行
-    M->>D: JEPXデータ取得
+    C->>M: 定期実行
+    M->>D: JEPXデータ取得開始
+    D->>D: 公開データダウンロード
     D->>M: raw保存
     M->>P: データ整形
     P->>M: processed保存
-    M->>DB: DB保存
-    M->>LOG: 実行ログ出力
+    M->>DB: SQLite保存
+    M->>LOG: ログ出力
 ```
 
 ---
 
-## 6. 長期研究アーキテクチャ
+# 6. 将来の運用アーキテクチャ
+
+Ubuntu VMで完成したシステムを  
+**ミニPC Linux サーバーへ移植する。**
+
+```mermaid
+flowchart TD
+    A[Ubuntu VM 開発環境]
+    A --> B[Linux Mini Server]
+    B --> C[cron Scheduler]
+    C --> D[JEPX Downloader]
+    D --> E[Database]
+    E --> F[Analysis]
+```
+
+---
+
+# 7. 長期研究アーキテクチャ
 
 ```mermaid
 flowchart TD
@@ -146,7 +190,7 @@ flowchart TD
 
 ---
 
-## 7. 将来拡張アーキテクチャ
+# 8. 将来拡張アーキテクチャ
 
 ```mermaid
 flowchart TD
@@ -163,27 +207,43 @@ flowchart TD
     H --> J[相関分析]
     H --> K[需給モデル]
 
-    L[AWS Lambda / EC2] -. 将来移行 .-> B
+    L[AWS EC2 / Lambda] -. 将来移行 .-> B
     M[S3 / PostgreSQL] -. 将来移行 .-> E
 ```
 
 ---
 
-## 8. アーキテクチャ設計方針
+# 9. アーキテクチャ設計方針
 
-このプロジェクトでは以下の設計方針を採用する。
+本プロジェクトでは以下の設計原則を採用する。
 
-1. **責務分離**  
-   取得、整形、保存、分析を分離する
+### 1. 責務分離
+取得・整形・保存・分析を分離する
 
-2. **ローカル完結で開始**  
-   まずはWindowsローカルで完成させる
+### 2. Linuxサーバー前提設計
+開発環境は Ubuntu VM を使用
 
-3. **Linux移植を前提に設計**  
-   `pathlib`、設定分離、ログ管理により移植性を高める
+### 3. cronベースのバッチ処理
+定期実行は Linux cron で制御
 
-4. **将来のクラウド化を阻害しない**  
-   スケジューラとアプリ本体を分離し、保存先も差し替え可能にする
+### 4. 移植性を重視
+将来的に
 
-5. **研究基盤として育てる**  
-   単なる取得ツールではなく、スパイク検出・極値統計・臨界現象解析につながる基盤とする
+```
+Ubuntu VM
+↓
+Linuxミニサーバー
+↓
+クラウド
+```
+
+へ移行可能な設計とする。
+
+### 5. 研究基盤として設計
+単なる取得ツールではなく
+
+- スパイク検出
+- 極値統計
+- 臨界現象解析
+
+につながるデータ基盤として設計する。
