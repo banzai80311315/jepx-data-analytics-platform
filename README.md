@@ -1,7 +1,22 @@
 # jepx-data-analytics-platform
 
-JEPX（日本卸電力取引所）の電力価格データを収集・蓄積・分析し、  
-電力価格スパイクの統計的性質を研究するためのデータ分析基盤。
+JEPX（日本卸電力取引所）の電力価格データを分析する  
+インタラクティブ分析アプリケーション。
+
+JEPXが公開している年度CSVデータを読み込み、
+
+- 任意期間
+- エリア
+- 分析手法
+
+を指定して、ブラウザ上から電力価格分析を行う。
+
+本アプリは、電力価格スパイクの統計的性質を研究するための  
+**分析プラットフォーム**として設計している。
+
+---
+
+# 研究テーマ
 
 最終的な研究テーマ：
 
@@ -28,7 +43,7 @@ JEPX価格
 flowchart TD
     A[Windows Host]
     A --> B[VS Code]
-    A --> C[Browser / ChatGPT]
+    A --> C[Browser]
     A --> D[Git]
     A --> E[VirtualBox]
 
@@ -36,7 +51,7 @@ flowchart TD
     E --> F
 
     F --> G[Python Environment]
-    G --> H[JEPX Data Analytics Platform]
+    G --> H[Streamlit App]
 ```
 
 この構成により以下を実現する。
@@ -44,7 +59,7 @@ flowchart TD
 - Windows上の快適な開発環境
 - Linuxサーバー環境での実行
 - VS Code から Ubuntu VM への直接開発
-- cron ベースのバッチ処理
+- Streamlit によるローカル分析アプリ
 - 将来の Linux サーバー・クラウド移行
 
 ---
@@ -57,9 +72,8 @@ flowchart TD
 flowchart LR
     A[Windows VS Code] -->|Remote SSH| B[Ubuntu VM]
     B --> C[コード編集]
-    C --> D[python main.py]
-    D --> E[動作確認]
-    E --> F[cron で定期実行]
+    C --> D[streamlit run app.py]
+    D --> E[ブラウザで分析]
 ```
 
 実務イメージとしては次に近い。
@@ -71,7 +85,7 @@ SSH
 ↓
 Linuxサーバー
 ↓
-バッチ実行
+アプリ実行
 ```
 
 ---
@@ -80,42 +94,34 @@ Linuxサーバー
 
 ```mermaid
 flowchart TD
-    A[cron Scheduler] --> B[main.py]
-    B --> C[downloader.py]
-    C --> D[JEPX公開データ取得]
-    C --> E[data/raw/ に生データ保存]
+    A[Browser] --> B[Streamlit UI]
 
-    B --> F[processor.py]
-    E --> F
-    F --> G[列名整理・型変換・必要列抽出]
-    G --> H[data/processed/ に整形済みデータ保存]
+    B --> C[Analysis Controller]
 
-    B --> I[database.py]
-    H --> I
-    I --> J[(SQLite Database)]
+    C --> D[CSV Loader]
+    D --> E[JEPX CSV Dataset]
 
-    B --> K[analysis scripts]
-    J --> K
-    K --> L[スパイク検出]
-    K --> M[時系列分析]
-    K --> N[極値分布解析]
-    K --> O[臨界現象との比較]
-    K --> P[電力需給モデル]
+    C --> F[Data Processor]
+    F --> G[Clean Data]
+
+    C --> H[Analysis Modules]
+
+    H --> I[時系列分析]
+    H --> J[分布分析]
+    H --> K[スパイク検出]
+    H --> L[極値解析]
 ```
 
 ---
 
-# 4. ETLの流れ
+# 4. データ分析フロー
 
 ```mermaid
 flowchart LR
-    A[JEPXデータ] --> B[Extract: downloader.py]
-    B --> C[Raw保存]
-    C --> D[Transform: processor.py]
-    D --> E[Processed保存]
-    E --> F[Load: database.py]
-    F --> G[(SQLite)]
-    G --> H[Analysis]
+    A[JEPX CSV] --> B[Load]
+    B --> C[Preprocess]
+    C --> D[Analysis]
+    D --> E[Visualization]
 ```
 
 ---
@@ -129,127 +135,112 @@ flowchart TD
     A --> D[logs/]
     A --> E[requirements.txt]
     A --> F[README.md]
-    A --> G[project/]
+    A --> G[notebooks/]
 
-    B --> B1[main.py]
-    B --> B2[config.py]
-    B --> B3[downloader.py]
-    B --> B4[processor.py]
-    B --> B5[database.py]
-    B --> B6[logger.py]
+    B --> B1[app.py]
+    B --> B2[loader.py]
+    B --> B3[processor.py]
+    B --> B4[analyzer.py]
+    B --> B5[visualizer.py]
+    B --> B6[config.py]
 
-    C --> C1[raw/]
-    C --> C2[processed/]
-    C --> C3[jepx.sqlite3]
+    C --> C1[raw CSV]
+    C --> C2[processed data]
 ```
 
 ---
 
 ## 各ファイルの責務
 
-### main.py
-全体の実行制御を担当するエントリポイント
+### app.py
+Streamlitアプリ本体  
+UIと分析実行を管理
 
-### config.py
-URL、保存先、DB名など設定値を管理
+---
 
-### downloader.py
-JEPXデータの取得と raw 保存
+### loader.py
+JEPX CSV読み込み
+
+- CSVロード
+- pandas DataFrame化
+
+---
 
 ### processor.py
-生データ整形
+データ整形
 
 - 列整理
-- 型変換
-- 必要列抽出
-
-### database.py
-SQLite保存処理
-
-- テーブル作成
-- 重複制御
-
-### logger.py
-ログ設定
+- 日付変換
+- 欠損処理
 
 ---
 
-# 6. Phase A 実行フロー（Ubuntu VM）
+### analyzer.py
+分析ロジック
 
-Phase A では、Windows の VS Code から Remote SSH で Ubuntu VM に接続し、  
-Ubuntu VM 上でコードを実行・確認する。
+- 時系列分析
+- 分布分析
+- スパイク検出
+- 極値解析
+
+---
+
+### visualizer.py
+グラフ描画
+
+- matplotlib / plotly
+
+---
+
+### config.py
+設定管理
+
+---
+
+# 6. アプリ実行フロー
 
 ```mermaid
 sequenceDiagram
-    participant W as Windows VS Code
-    participant U as Ubuntu VM
-    participant M as main.py
-    participant D as downloader.py
-    participant P as processor.py
-    participant DB as SQLite
-    participant LOG as logs/
+    participant U as User
+    participant B as Browser
+    participant S as Streamlit
+    participant A as Analyzer
+    participant D as Dataset
 
-    W->>U: Remote SSH 接続
-    W->>U: コード編集
-    W->>M: python main.py 実行
-    M->>D: JEPXデータ取得開始
-    D->>D: 公開データダウンロード
-    D->>M: raw保存
-    M->>P: データ整形
-    P->>M: processed保存
-    M->>DB: SQLite保存
-    M->>LOG: ログ出力
+    U->>B: 分析条件入力
+    B->>S: Streamlit UI
+    S->>A: 分析実行
+    A->>D: CSVデータ読み込み
+    A->>S: 分析結果
+    S->>B: グラフ表示
 ```
 
 ---
 
-# 7. 定期実行フロー（Ubuntu VM）
+# 7. 将来の運用アーキテクチャ
 
-開発完了後は、Ubuntu VM 上で cron により定期実行する。
-
-```mermaid
-sequenceDiagram
-    participant C as cron
-    participant M as main.py
-    participant D as downloader.py
-    participant P as processor.py
-    participant DB as SQLite
-    participant LOG as logs/
-
-    C->>M: 定期実行
-    M->>D: JEPXデータ取得
-    D->>M: raw保存
-    M->>P: データ整形
-    P->>M: processed保存
-    M->>DB: SQLite保存
-    M->>LOG: ログ出力
-```
-
----
-
-# 8. 将来の運用アーキテクチャ
-
-Ubuntu VMで完成したシステムを  
+Ubuntu VMで開発したアプリを  
 **ミニPC Linux サーバーへ移植する。**
 
 ```mermaid
 flowchart TD
     A[Windows + VS Code]
-    A -->|Remote SSH| B[Ubuntu VM 開発 / 実行環境]
-    B --> C[Linux Mini Server]
-    C --> D[cron Scheduler]
-    D --> E[JEPX Downloader]
-    E --> F[Database]
-    F --> G[Analysis]
+    A -->|Remote SSH| B[Ubuntu VM]
+
+    B --> C[Streamlit App]
+
+    C --> D[Browser]
+
+    B --> E[Linux Mini Server]
 ```
 
 ---
 
-# 9. 長期研究アーキテクチャ
+# 8. 長期研究アーキテクチャ
 
 ```mermaid
 flowchart TD
-    A[JEPX価格データ蓄積] --> B[時系列DB / SQLite]
+    A[JEPX価格データ] --> B[時系列分析]
     B --> C[スパイク検出]
     C --> D[極値分布フィッティング]
     D --> E[臨界現象との比較]
@@ -258,49 +249,39 @@ flowchart TD
 
 ---
 
-# 10. 将来拡張アーキテクチャ
+# 9. 将来拡張アーキテクチャ
 
 ```mermaid
 flowchart TD
-    A[Scheduler] --> B[Python ETL]
-    B --> C[Raw Storage]
-    B --> D[Processed Storage]
-    D --> E[(Database)]
+    A[Streamlit App] --> B[Analysis Modules]
+    B --> C[統計分析]
+    B --> D[極値分布]
+    B --> E[相関分析]
+    B --> F[需給モデル]
 
-    E --> F[Analysis API / FastAPI]
-    F --> G[Web Dashboard]
-
-    E --> H[統計分析]
-    H --> I[極値分布]
-    H --> J[相関分析]
-    H --> K[需給モデル]
-
-    L[AWS EC2 / Lambda] -. 将来移行 .-> B
-    M[S3 / PostgreSQL] -. 将来移行 .-> E
+    G[FastAPI] -. 将来拡張 .-> A
+    H[Web Dashboard] -. 将来拡張 .-> A
 ```
 
 ---
 
-# 11. アーキテクチャ設計方針
+# 10. アーキテクチャ設計方針
 
 本プロジェクトでは以下の設計原則を採用する。
 
 ### 1. 責務分離
-取得・整形・保存・分析を分離する
+データ読み込み・整形・分析・可視化を分離する
 
 ### 2. 開発環境と実行環境の分離
 Windows を開発母艦、Ubuntu VM を実行環境とする
 
-### 3. Linuxサーバー前提設計
-実行環境は Ubuntu VM を使用し、Linux 上で動作する構成とする
+### 3. Streamlitによる分析アプリ
+Pythonコードを書かずに分析可能なUIを提供する
 
 ### 4. Remote SSH による開発
 VS Code から Ubuntu VM に接続し、Linux 上のファイルを直接編集する
 
-### 5. cronベースのバッチ処理
-定期実行は Linux cron で制御する
-
-### 6. 移植性を重視
+### 5. 移植性を重視
 将来的に
 
 ```text
@@ -313,11 +294,11 @@ Linuxミニサーバー
 
 へ移行可能な設計とする。
 
-### 7. 研究基盤として設計
-単なる取得ツールではなく
+### 6. 研究基盤として設計
+単なる分析ツールではなく
 
 - スパイク検出
 - 極値統計
 - 臨界現象解析
 
-につながるデータ基盤として設計する。
+につながる分析基盤とする。
