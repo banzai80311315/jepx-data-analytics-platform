@@ -12,5 +12,5 @@ venv/
 logs/
 
 # data
-data/raw/*
-data/processed/*
+# data/raw/*
+# data/processed/*
